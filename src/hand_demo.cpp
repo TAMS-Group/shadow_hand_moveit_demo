@@ -2,6 +2,8 @@
 
 #include <moveit/move_group_interface/move_group_interface.h>
 
+// very simple and hard-coded way to count from 1-3 with a standard right shadow-hand
+
 int main(int argc, char** argv){
 	ros::init(argc, argv, "hand_demo");
 

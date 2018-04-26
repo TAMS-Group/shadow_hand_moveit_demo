@@ -8,6 +8,15 @@
 
 #include <moveit/collision_detection/collision_matrix.h>
 
+// Run through a set of hand poses with a right shadow hand.
+//
+// Poses are stored in the warehouse or specified in the srdf.
+//
+// Support small collisions between individual finger links for some gestures.
+// Note that this is not inherently safe, but allows for simple contacts
+// as long as the planner finds trajectories where the colliding links approach
+// the contact from the correct direction
+
 using namespace std;
 
 ros::ServiceClient get_named_state;
