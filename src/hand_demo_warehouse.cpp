@@ -19,8 +19,9 @@ bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const
 		mgi.setJointValueTarget(srv.response.state.joint_state);
 		return true;
 	}
-	else 
+	else {
 		return mgi.setNamedTarget(t);
+	}
 }
 
 int main(int argc, char** argv){
@@ -82,7 +83,7 @@ int main(int argc, char** argv){
 			continue;
 		}
 		ROS_INFO_STREAM("Going to state " << t.name);
-		
+
 		// allow named collisions
 		{
 			collision_detection::AllowedCollisionMatrix acm(full_acm);
@@ -95,7 +96,7 @@ int main(int argc, char** argv){
 			acm.getMessage(scene_msg.allowed_collision_matrix);
 			psi.applyPlanningScene(scene_msg);
 		}
-		
+
 		bool moved= false;
 		if(!(moved= static_cast<bool>(mgi.move()))){
 			ROS_WARN_STREAM("Failed to move to state '" << t.name << "'");
