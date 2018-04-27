@@ -134,7 +134,7 @@ int main(int argc, char** argv){
 			current_target= dist(rnd);
 		}
 		else {
-			++current_target%targets.size();
+			current_target=(1+current_target)%targets.size();
 		}
 	}
 
