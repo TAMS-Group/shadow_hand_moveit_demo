@@ -8,6 +8,8 @@
 
 #include <moveit/collision_detection/collision_matrix.h>
 
+#include <hand_demo/NamedRobotPose.h>
+
 #include <random>
 
 // Run through a set of hand poses with a right shadow hand.
@@ -45,6 +47,9 @@ int main(int argc, char** argv){
 	ros::NodeHandle pnh("~");
 
 	bool randomize= pnh.param<bool>("random", false);
+
+	//publish the jointstate, corresponding name
+	ros::Publisher pose_pub= nh.advertise<hand_demo::NamedRobotPose>("achieved_pose", 1);
 
 	get_named_state= nh.serviceClient<moveit_msgs::GetRobotStateFromWarehouse>("get_robot_state", true);
 	ROS_INFO("waiting for warehouse");
@@ -123,9 +128,16 @@ int main(int argc, char** argv){
 		}
 
 		// something went wrong. We could just continue but abort to debug it
-		if(!moved) return 0;
+		if(moved) {
+			hand_demo::NamedRobotPose pose;
+			pose.name=t.name;
+			pose.state.name= mgi.getJointNames();
+			pose.state.position= mgi.getCurrentJointValues();
+			pose.state.header.stamp = ros::Time::now();
+			pose_pub.publish(pose);
 
-		ros::Duration(pnh.param<double>("sleep",2)).sleep();
+			ros::Duration(pnh.param<double>("sleep",2)).sleep();
+		}
 
 		if(randomize){
 			static std::default_random_engine rnd(42);
@@ -134,7 +146,7 @@ int main(int argc, char** argv){
 			current_target= dist(rnd);
 		}
 		else {
-			current_target=(1+current_target)%targets.size();
+			current_target= (1+current_target)%targets.size();
 		}
 	}
 
