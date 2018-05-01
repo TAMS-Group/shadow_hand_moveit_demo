@@ -8,6 +8,8 @@
 
 #include <moveit/collision_detection/collision_matrix.h>
 
+#include <random>
+
 // Run through a set of hand poses with a right shadow hand.
 //
 // Poses are stored in the warehouse or specified in the srdf.
