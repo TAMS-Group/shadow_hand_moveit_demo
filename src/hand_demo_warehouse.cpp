@@ -147,6 +147,12 @@ int main(int argc, char** argv){
 		}
 		else {
 			current_target= (1+current_target)%targets.size();
+			//if(current_target == 0){
+			//	for(int i= 10; i > 0; --i){
+			//		ROS_INFO_STREAM("FINISHED ROUND - RESTARTING IN " << i << " SECONDS");
+			//		ros::Duration(1.0).sleep();
+			//	}
+			//}
 		}
 	}
 
