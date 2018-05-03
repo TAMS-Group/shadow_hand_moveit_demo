@@ -7,6 +7,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning_interface
   roscpp
   message_generation
+  cv_bridge
 )
 
 add_message_files(
