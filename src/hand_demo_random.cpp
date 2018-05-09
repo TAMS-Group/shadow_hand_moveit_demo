@@ -28,7 +28,6 @@ int main(int argc, char** argv){
 
 	while(ros::ok()){
 		mgi.setRandomTarget();
-
 		bool moved= false;
 		if(!(moved= static_cast<bool>(mgi.move()))){
 			ROS_WARN_STREAM("Failed to move to state");
