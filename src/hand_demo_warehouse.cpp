@@ -22,6 +22,7 @@
 
 #include <iostream>
 #include <string>
+#include <fstream>
 
 // Run through a set of hand poses with a right shadow hand.
 //
@@ -35,7 +36,6 @@
 using namespace std;
 
 ros::ServiceClient get_named_state;
-bool save_image= false;
 
 bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const string& t){
 	moveit_msgs::GetRobotStateFromWarehouse srv;
@@ -49,63 +49,14 @@ bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const
 	}
 }
 
-void tripletcollect_callback30(const sensor_msgs::Image::ConstPtr &image30) {
-	static int count = 0;
-  	if (save_image)
-	{
-    		cv_bridge::CvImagePtr cv_ptr30;
-    		try
-	    	{
-	      		cv_ptr30 = cv_bridge::toCvCopy(image30, sensor_msgs::image_encodings::BGR8);
-		}
-	    	catch (cv_bridge::Exception& e)
-	    	{
-		       ROS_ERROR("cv_bridge exception: %s", e.what());
-		       return;
-		}
-		cv::imwrite( "/home/hand/v4hn/src/hand_demo/data/30/"  + to_string( count++ )  + ".jpg" , cv_ptr30->image );
-               cout<<"count "<<count<<endl;	
-        }
-        save_image=false;
-}
-
-void tripletcollect_callback68(const sensor_msgs::Image::ConstPtr &image68) {
-	static int count = 0;
-	if (save_image)
-	{
-	       cv_bridge::CvImagePtr cv_ptr68;
-	       try
-	       {
-			cv_ptr68 = cv_bridge::toCvCopy(image68, sensor_msgs::image_encodings::BGR8);
-	       }
-	       catch (cv_bridge::Exception& e)
-	       {
-	    	        ROS_ERROR("cv_bridge exception: %s", e.what());
-	                return;
-	       }
-	       cv::imwrite( "/home/hand/v4hn/src/hand_demo/data/68/"  + to_string( count++ )  + ".jpg", cv_ptr68->image );
-        cout<<"count "<< count << endl;        
-        }
-        save_image=false;
-}
-
 int main(int argc, char** argv){
 	ros::init(argc, argv, "hand_demo");
-
-
-	ros::AsyncSpinner spinner(2); // Use 4 threads
-        spinner.start();
+	ros::AsyncSpinner spinner(3);
+  spinner.start();
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
 
-	bool randomize= pnh.param<bool>("random", false);
-
-	//publish the jointstate, corresponding name
-	ros::Publisher pose_pub= nh.advertise<hand_demo::NamedRobotPose>("achieved_pose", 1);
-
-        //subscribe image
-	ros::Subscriber sub1 = nh.subscribe("/camera1/color/image_raw", 1, tripletcollect_callback30);
-	ros::Subscriber sub2 = nh.subscribe("/camera2/color/image_raw", 1, tripletcollect_callback68);
+	bool randomize= pnh.param<bool>("random", true);
 
 	get_named_state= nh.serviceClient<moveit_msgs::GetRobotStateFromWarehouse>("get_robot_state", true);
 	ROS_INFO("waiting for warehouse");
@@ -185,17 +136,8 @@ int main(int argc, char** argv){
 
 		// something went wrong. We could just continue but abort to debug it
 		if(moved) {
-			hand_demo::NamedRobotPose pose;
-			pose.name=t.name;
-			pose.state.name= mgi.getJointNames();
-			pose.state.position= mgi.getCurrentJointValues();
-			pose.state.header.stamp = ros::Time::now();
-			pose_pub.publish(pose);
-                        save_image=true;
-                        
 			ros::Duration(pnh.param<double>("sleep",2)).sleep();
 		}
-ROS_INFO_STREAM("moved " << moved << " SECONDS");
 
 		if(randomize){
 			static std::default_random_engine rnd(42);
@@ -205,13 +147,6 @@ ROS_INFO_STREAM("moved " << moved << " SECONDS");
 		}
 		else {
 			current_target= (1+current_target)%targets.size();
-			ROS_INFO_STREAM("current target " << current_target << " SECONDS");
-                        //if(current_target == 0){
-			//	for(int i= 10; i > 0; --i){
-			//		ROS_INFO_STREAM("FINISHED ROUND - RESTARTING IN " << i << " SECONDS");
-			//		ros::Duration(1.0).sleep();
-			//	}
-			//}
 		}
 	}
 	return 0;
