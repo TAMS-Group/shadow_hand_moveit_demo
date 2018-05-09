@@ -1,4 +1,12 @@
 #include <ros/ros.h>
+#include <sensor_msgs/Image.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
 
 #include <moveit_msgs/GetRobotStateFromWarehouse.h>
 #include <moveit_msgs/GetPlanningScene.h>
@@ -11,6 +19,10 @@
 #include <hand_demo/NamedRobotPose.h>
 
 #include <random>
+
+#include <iostream>
+#include <string>
+#include <fstream>
 
 // Run through a set of hand poses with a right shadow hand.
 //
@@ -39,17 +51,12 @@ bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const
 
 int main(int argc, char** argv){
 	ros::init(argc, argv, "hand_demo");
-
-	ros::AsyncSpinner spinner(1);
-	spinner.start();
-
+	ros::AsyncSpinner spinner(3);
+  spinner.start();
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
 
-	bool randomize= pnh.param<bool>("random", false);
-
-	//publish the jointstate, corresponding name
-	ros::Publisher pose_pub= nh.advertise<hand_demo::NamedRobotPose>("achieved_pose", 1);
+	bool randomize= pnh.param<bool>("random", true);
 
 	get_named_state= nh.serviceClient<moveit_msgs::GetRobotStateFromWarehouse>("get_robot_state", true);
 	ROS_INFO("waiting for warehouse");
@@ -77,7 +84,7 @@ int main(int argc, char** argv){
 		vector<pair<string,string>> allowed_collisions;
 	} Target;
 	vector<Target> targets {
-		{ "open", {} },
+		//{ "open", {} },
 		{ "chinese_number_0", {{"rh_thdistal", "rh_ffdistal"}} },
 		{ "chinese_number_1", {{"rh_thdistal", "rh_mfmiddle"}} },
 		{ "chinese_number_2", {} },
@@ -129,13 +136,6 @@ int main(int argc, char** argv){
 
 		// something went wrong. We could just continue but abort to debug it
 		if(moved) {
-			hand_demo::NamedRobotPose pose;
-			pose.name=t.name;
-			pose.state.name= mgi.getJointNames();
-			pose.state.position= mgi.getCurrentJointValues();
-			pose.state.header.stamp = ros::Time::now();
-			pose_pub.publish(pose);
-
 			ros::Duration(pnh.param<double>("sleep",2)).sleep();
 		}
 
@@ -147,14 +147,7 @@ int main(int argc, char** argv){
 		}
 		else {
 			current_target= (1+current_target)%targets.size();
-			//if(current_target == 0){
-			//	for(int i= 10; i > 0; --i){
-			//		ROS_INFO_STREAM("FINISHED ROUND - RESTARTING IN " << i << " SECONDS");
-			//		ros::Duration(1.0).sleep();
-			//	}
-			//}
 		}
 	}
-
 	return 0;
 }
