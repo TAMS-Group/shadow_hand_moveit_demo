@@ -13,6 +13,8 @@
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/planning_scene/planning_scene.h>
 
 #include <moveit/collision_detection/collision_matrix.h>
 
@@ -56,7 +58,7 @@ int main(int argc, char** argv){
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
 
-	bool randomize= pnh.param<bool>("random", true);
+	bool randomize= pnh.param<bool>("random", false);
 
 	get_named_state= nh.serviceClient<moveit_msgs::GetRobotStateFromWarehouse>("get_robot_state", true);
 	ROS_INFO("waiting for warehouse");
@@ -65,6 +67,17 @@ int main(int argc, char** argv){
 	ROS_INFO("setting up MGI and PSI");
 	moveit::planning_interface::MoveGroupInterface mgi("right_hand");
 	moveit::planning_interface::PlanningSceneInterface psi;
+
+
+	robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
+	robot_model::RobotModelPtr shadow_model = robot_model_loader.getModel();
+	planning_scene::PlanningScene planning_scene(shadow_model);
+	robot_state::RobotState& current_state = planning_scene.getCurrentStateNonConst();
+	const robot_model::JointModelGroup* joint_model_group = current_state.getJointModelGroup("right_hand");
+
+	collision_detection::CollisionRequest collision_request;
+	collision_detection::CollisionResult collision_result;
+	vector<pair<string,string>> collision_pairs;
 
 	collision_detection::AllowedCollisionMatrix full_acm;
 	{
@@ -79,38 +92,63 @@ int main(int argc, char** argv){
 		full_acm= srv.response.scene.allowed_collision_matrix;
 	}
 
-	typedef struct {
-		string name;
-		vector<pair<string,string>> allowed_collisions;
-	} Target;
-	vector<Target> targets {
-		//{ "open", {} },
-		{ "chinese_number_0", {{"rh_thdistal", "rh_ffdistal"}} },
-		{ "chinese_number_1", {{"rh_thdistal", "rh_mfmiddle"}} },
-		{ "chinese_number_2", {} },
-		{ "chinese_number_3", {{"rh_thdistal", "rh_ffmiddle"}} },
-		{ "chinese_number_4", {} },
-		{ "chinese_number_5", {} },
-		{ "chinese_number_6", {} },
-		{ "chinese_number_7", {{"rh_thdistal", "rh_mfdistal"}, {"rh_thdistal", "rh_ffdistal"}} },
-		{ "chinese_number_8", {} },
-		{ "chinese_number_9", {} },
+	vector<string> targets {
+		"open",
+		"chinese_number_0",
+		"chinese_number_1",
+		"chinese_number_2",
+		"chinese_number_3",
+		"chinese_number_4",
+		"chinese_number_5",
+		"chinese_number_6",
+		"chinese_number_7",
+		"chinese_number_8",
+		"chinese_number_9",
+		"grasp_0_can",
+		"grasp_0_thincan",
+		"grasp_0_bigcan",
+		"grasp_1_apple",
+		"grasp_2_ffup",
+		"grasp_3_smallcube",
+		"grasp_3_smallcylinder",
+		"grasp_4_pen",
+		"grasp_4_pen1",
+		"grasp_parallel",
+		"grasp_parallel2",
+		"grasp_parallel3",
+		"grasp_smallcylinder2",
+		"grasp_thinobjs",
 	};
 
 	size_t current_target= 0;
 	while(ros::ok()){
 		auto& t= targets[current_target];
 
-		if(!set_named_target(mgi, t.name)){
-			ROS_WARN_STREAM("Don't know state '" << t.name << "'. Skipping");
+		if(!set_named_target(mgi, t)){
+			ROS_WARN_STREAM("Don't know state '" << t << "'. Skipping");
 			continue;
 		}
-		ROS_INFO_STREAM("Going to state " << t.name);
+		ROS_INFO_STREAM("Going to state " << t);
+
+		collision_request.contacts = true;
+		collision_request.max_contacts = 1000;
+		collision_result.clear();
+
+		// get self collision results;
+		current_state = mgi.getJointValueTarget();
+		planning_scene.checkSelfCollision(collision_request, collision_result);
+		collision_detection::CollisionResult::ContactMap::const_iterator it;
+		collision_pairs.clear();
+		for(it = collision_result.contacts.begin();	it != collision_result.contacts.end(); ++it)
+		{
+			collision_pairs.push_back(std::make_pair (it->first.first.c_str(), it->first.second.c_str()));
+			ROS_WARN("Collision between: %s and %s, need to allow these collisions", it->first.first.c_str(), it->first.second.c_str());
+		}
 
 		// allow named collisions
 		{
 			collision_detection::AllowedCollisionMatrix acm(full_acm);
-			for(auto& ac : t.allowed_collisions){
+			for(auto& ac : collision_pairs){
 				acm.setEntry(ac.first, ac.second, true);
 			}
 			moveit_msgs::PlanningScene scene_msg;
@@ -122,7 +160,7 @@ int main(int argc, char** argv){
 
 		bool moved= false;
 		if(!(moved= static_cast<bool>(mgi.move()))){
-			ROS_WARN_STREAM("Failed to move to state '" << t.name << "'");
+			ROS_WARN_STREAM("Failed to move to state '" << t<< "'");
 		}
 
 		// forbid collisions again
