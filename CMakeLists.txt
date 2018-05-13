@@ -29,14 +29,22 @@ add_executable(${PROJECT_NAME} src/hand_demo.cpp)
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
-add_executable(${PROJECT_NAME}_warehouse src/hand_demo_warehouse.cpp)
-add_dependencies(${PROJECT_NAME}_warehouse ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME}_warehouse ${catkin_LIBRARIES})
+add_executable(${PROJECT_NAME}_warehouse_onecamera src/hand_demo_warehouse_onecamera.cpp)
+add_dependencies(${PROJECT_NAME}_warehouse_onecamera ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME}_warehouse_onecamera ${catkin_LIBRARIES})
+
+add_executable(${PROJECT_NAME}_warehouse_twocamera src/hand_demo_warehouse_twocamera.cpp)
+add_dependencies(${PROJECT_NAME}_warehouse_twocamera ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME}_warehouse_twocamera ${catkin_LIBRARIES})
 
 add_executable(save_data src/save_data.cpp)
 add_dependencies(save_data ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(save_data ${catkin_LIBRARIES})
 
-add_executable(${PROJECT_NAME}_random_save src/hand_demo_random_save.cpp)
-add_dependencies(${PROJECT_NAME}_random_save ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME}_random_save ${catkin_LIBRARIES})
+add_executable(${PROJECT_NAME}_random_twocamera src/hand_demo_random_twocamera.cpp)
+add_dependencies(${PROJECT_NAME}_random_twocamera ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME}_random_twocamera ${catkin_LIBRARIES})
+
+add_executable(${PROJECT_NAME}_random_onecamera src/hand_demo_random_onecamera.cpp)
+add_dependencies(${PROJECT_NAME}_random_onecamera ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME}_random_onecamera ${catkin_LIBRARIES})

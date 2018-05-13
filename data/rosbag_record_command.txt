@@ -1,1 +1,0 @@
-rosbag record -o shadow_random_move /jointstates /achieved_pose /move_group/display_planned_path

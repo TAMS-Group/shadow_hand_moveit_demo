@@ -22,11 +22,11 @@
 
 using namespace std;
 sensor_msgs::JointState pose_state;
-int initialized = 0;
+bool planned = false;
 bool moved= false;
 
-void Two_image_callback(const sensor_msgs::Image::ConstPtr &image_data1, const sensor_msgs::Image::ConstPtr &image_data2) {
-	if (initialized && moved)
+void Two_camera_callback(const sensor_msgs::Image::ConstPtr &image_data1, const sensor_msgs::Image::ConstPtr &image_data2) {
+	if (planned && moved)
 	{
 		static int count = 0;
 		count++;
@@ -62,25 +62,21 @@ void Two_image_callback(const sensor_msgs::Image::ConstPtr &image_data1, const s
 		<< to_string( pose.position[17]) <<',' << to_string( pose.position[18]) <<',' << to_string( pose.position[19]) <<','
 		<< to_string( pose.position[20]) <<',' << to_string( pose.position[21]) <<',' << to_string( pose.position[22]) <<','
 		<< to_string( pose.position[23]) <<  endl;
-		ros::Duration(1).sleep();
+		ros::Duration(0.5).sleep();
 	}
-	initialized = 0;
 }
 
 
 void get_current_states(const sensor_msgs::JointState &current_state){
-	if (moved){
-		cout<<"get current pose_state "<<endl;
-		pose_state=current_state;
-		pose_state.header.stamp = ros::Time::now();
-		initialized = 1;
-	}
+	cout<<"get current pose_state "<<endl;
+	pose_state=current_state;
+	pose_state.header.stamp = ros::Time::now();
 }
 
 
 int main(int argc, char** argv){
-	ros::init(argc, argv, "hand_demo_randome_save");
-	ros::AsyncSpinner spinner(1);
+	ros::init(argc, argv, "hand_demo_random_twocamera");
+	ros::AsyncSpinner spinner(2);
 	spinner.start();
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
@@ -88,6 +84,7 @@ int main(int argc, char** argv){
 	ROS_INFO("setting up MGI");
 	moveit::planning_interface::MoveGroupInterfacePtr mgi;
 	mgi = std::make_shared<moveit::planning_interface::MoveGroupInterface>("right_hand");
+	moveit::planning_interface::MoveGroupInterface::Plan shadow_plan;
 
 	ros::Subscriber state_sub = nh.subscribe("/joint_states", 1, get_current_states);
 
@@ -97,19 +94,27 @@ int main(int argc, char** argv){
 	sensor_msgs::Image> SyncPolicy;
 	// ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
 	message_filters::Synchronizer<SyncPolicy> sync(SyncPolicy(10), camera1_sub, camera2_sub);
-	sync.registerCallback(boost::bind(&Two_image_callback, _1, _2));
+	sync.registerCallback(boost::bind(&Two_camera_callback, _1, _2));
 
-	while(ros::ok()){
+	while(ros::ok())
+	{
 		mgi->setRandomTarget();
 		ROS_INFO("go to a random pose");
-		if(!(moved= static_cast<bool>(mgi->move()))){
-			ROS_WARN_STREAM("Failed to move to state");
+
+		planned = false;
+		if (!(planned= static_cast<bool>(mgi->plan(shadow_plan))))
+		{
+			ROS_WARN_STREAM("Failed to plan state");
+		}
+
+		if(!(moved= static_cast<bool>(mgi->execute(shadow_plan)))){
+			ROS_WARN_STREAM("Failed to execute state");
 		}
 
 		// if something went wrong, we could just continue but abort to debug it
-		if(moved) {
-			ros::Duration(2).sleep();
-		}
+		// if(moved) {
+		// 	ros::Duration(2).sleep();
+		// }
 	}
 	return 0;
 }
