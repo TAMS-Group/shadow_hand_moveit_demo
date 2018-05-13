@@ -106,7 +106,7 @@ bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const
 int main(int argc, char** argv){
 	ros::init(argc, argv, "hand_demo_warehouse_onecamera");
 	ros::AsyncSpinner spinner(3);
-  spinner.start();
+	spinner.start();
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
 
