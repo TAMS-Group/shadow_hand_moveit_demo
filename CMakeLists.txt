@@ -32,11 +32,3 @@ target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 add_executable(${PROJECT_NAME}_warehouse src/hand_demo_warehouse.cpp)
 add_dependencies(${PROJECT_NAME}_warehouse ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_warehouse ${catkin_LIBRARIES})
-
-add_executable(save_data src/save_data.cpp)
-add_dependencies(save_data ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
-target_link_libraries(save_data ${catkin_LIBRARIES})
-
-add_executable(${PROJECT_NAME}_random src/hand_demo_random.cpp)
-add_dependencies(${PROJECT_NAME}_random ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME}_random ${catkin_LIBRARIES})

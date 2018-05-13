@@ -1,12 +1,4 @@
 #include <ros/ros.h>
-#include <sensor_msgs/Image.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-
-#include <message_filters/subscriber.h>
-#include <message_filters/time_synchronizer.h>
 
 #include <moveit_msgs/GetRobotStateFromWarehouse.h>
 #include <moveit_msgs/GetPlanningScene.h>
@@ -22,7 +14,6 @@
 
 #include <iostream>
 #include <string>
-#include <fstream>
 
 // Run through a set of hand poses with a right shadow hand.
 //
@@ -52,7 +43,7 @@ bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const
 int main(int argc, char** argv){
 	ros::init(argc, argv, "hand_demo");
 	ros::AsyncSpinner spinner(3);
-  spinner.start();
+	spinner.start();
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
 
