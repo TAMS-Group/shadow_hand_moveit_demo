@@ -63,7 +63,7 @@ void Two_image_callback(const sensor_msgs::Image::ConstPtr &image_data1, const s
 int main(int argc, char** argv){
 	ros::init(argc, argv, "hand_demo_data");
 	ros::AsyncSpinner spinner(2);
-  spinner.start();
+	spinner.start();
 	ros::NodeHandle nh;
 	ROS_INFO("setting up MGI");
 	moveit::planning_interface::MoveGroupInterface mgi("right_hand");
