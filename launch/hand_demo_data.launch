@@ -1,7 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-    <node name="hand_demo_warehouse" pkg="hand_demo" type="hand_demo_warehouse" output="screen"/>
-    <!-- <node name="hand_demo_random" pkg="hand_demo" type="hand_demo_random" output="screen"/> -->
-
-    <node name="save_data" pkg="hand_demo" type="save_data" output="screen"/>
-</launch>
