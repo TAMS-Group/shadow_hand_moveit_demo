@@ -40,11 +40,11 @@ using namespace std;
 
 ros::ServiceClient get_named_state;
 sensor_msgs::JointState pose_state;
-int initialized = 0;
+bool planned = 0;
 bool moved= false;
 
 void Two_image_callback(const sensor_msgs::Image::ConstPtr &image_data1, const sensor_msgs::Image::ConstPtr &image_data2) {
-	if (initialized && moved)
+	if (planned && moved)
 	{
 		static int count = 0;
 		count++;
@@ -82,17 +82,13 @@ void Two_image_callback(const sensor_msgs::Image::ConstPtr &image_data1, const s
 		<< to_string( pose.position[23]) <<  endl;
 		ros::Duration(1).sleep();
 	}
-	initialized = 0;
 }
 
 
 void get_current_states(const sensor_msgs::JointState &current_state){
-	if (moved){
-		cout<<"get current pose_state "<<endl;
-		pose_state=current_state;
-		pose_state.header.stamp = ros::Time::now();
-		initialized = 1;
-	}
+	// cout<<"get current pose_state "<<endl;
+	pose_state=current_state;
+	pose_state.header.stamp = ros::Time::now();
 }
 
 
@@ -110,9 +106,9 @@ bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const
 
 
 int main(int argc, char** argv){
-	ros::init(argc, argv, "hand_demo");
+	ros::init(argc, argv, "hand_demo_warehouse_twocamera");
 	ros::AsyncSpinner spinner(3);
-  spinner.start();
+	spinner.start();
 	ros::NodeHandle nh;
 	ros::NodeHandle pnh("~");
 
@@ -125,6 +121,7 @@ int main(int argc, char** argv){
 	ROS_INFO("setting up MGI and PSI");
 	moveit::planning_interface::MoveGroupInterface mgi("right_hand");
 	moveit::planning_interface::PlanningSceneInterface psi;
+	moveit::planning_interface::MoveGroupInterface::Plan shadow_plan;
 
 	ros::Subscriber state_sub = nh.subscribe("/joint_states", 1, get_current_states);
 
@@ -135,7 +132,6 @@ int main(int argc, char** argv){
 	// ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
 	message_filters::Synchronizer<SyncPolicy> sync(SyncPolicy(10), camera1_sub, camera2_sub);
 	sync.registerCallback(boost::bind(&Two_image_callback, _1, _2));
-
 
 	robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
 	robot_model::RobotModelPtr shadow_model = robot_model_loader.getModel();
@@ -226,8 +222,14 @@ int main(int argc, char** argv){
 			psi.applyPlanningScene(scene_msg);
 		}
 
-		if(!(moved= static_cast<bool>(mgi.move()))){
-			ROS_WARN_STREAM("Failed to move to state '" << t<< "'");
+		planned = false;
+		if (!(planned= static_cast<bool>(mgi.plan(shadow_plan))))
+		{
+			ROS_WARN_STREAM("Failed to plan state '" << t<< "'");
+		}
+
+		if(!(moved= static_cast<bool>(mgi.execute(shadow_plan)))){
+			ROS_WARN_STREAM("Failed to execute state '" << t<< "'");
 		}
 
 		// forbid collisions again
@@ -239,13 +241,8 @@ int main(int argc, char** argv){
 			psi.applyPlanningScene(scene_msg);
 		}
 
-		// something went wrong. We could just continue but abort to debug it
-		if(moved) {
-			ros::Duration(pnh.param<double>("sleep",2)).sleep();
-		}
-
 		if(randomize){
-			static std::default_random_engine rnd(42);
+			static std::default_random_engine rnd(time(nullptr));
 			//static std::random_device rnd;
 			std::uniform_int_distribution<int> dist(0, targets.size()-1);
 			current_target= dist(rnd);
