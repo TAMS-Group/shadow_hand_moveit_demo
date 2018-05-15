@@ -38,13 +38,36 @@ using namespace std;
 
 ros::ServiceClient get_named_state;
 sensor_msgs::JointState pose_state;
-bool planned = true;
+bool planned = false;
 bool moved = false;
+bool initialized = false;
+
+class Hand_Demo_Warehouse_Onecamera()
+private:
+
+public:
+
+	Hand_Demo_Warehouse_Onecamera();
+
 
 void One_camera_callback(const sensor_msgs::Image::ConstPtr &image_data) {
+	// if (!planned && initialized)
+	// {
+	// 	//create new folfer
+	// 	// image folder = "/home/hand/v4hn/src/hand_demo/data/handpose/";
+	// 	// image_folder = main_folder + ""
+	// }
+	static int count = 0;
 	if (planned && moved)
 	{
-		static int count = 0;
+		// after planned, waiting robot move
+		if (!initialized)
+		{
+			ros::Duration(0.5).sleep();
+			initialized = true;
+			return;
+		}
+
 		sensor_msgs::JointState pose = pose_state;
 		cv_bridge::CvImagePtr cv_ptr;
 
@@ -59,7 +82,7 @@ void One_camera_callback(const sensor_msgs::Image::ConstPtr &image_data) {
 		}
 
 		count++;
-		cout<<"camera count: "<< count << endl;
+		cout<<"image count: "<< count << endl;
 
 		cv::imwrite( "/home/hand/v4hn/src/hand_demo/data/handpose/" + to_string( count ) + ".jpg", cv_ptr->image );
 
@@ -75,10 +98,21 @@ void One_camera_callback(const sensor_msgs::Image::ConstPtr &image_data) {
 		<< to_string( pose.position[20]) <<',' << to_string( pose.position[21]) <<',' << to_string( pose.position[22]) <<','
 		<< to_string( pose.position[23]) <<  endl;
 
-		// negative image need wait 0.5s
-		if (count % 3 == 2 )
-			ros::Duration(1).sleep();
+		// hand_demo::NamedRobotPose current_state;
+		// current_state.image = image_data;
+		// current_state.state = pose;
+		// pose_pub.publish(current_state);
 	}
+
+	//record the start of a new action
+	if (!planned && initialized)
+	{
+		initialized = false;
+		ofstream outFile;
+		outFile.open("/home/hand/v4hn/src/hand_demo/data/handpose_changepoint.csv", ios::app);
+		outFile << to_string( count + 1 ) << endl;
+	}
+	ros::Duration(0.05).sleep();
 }
 
 
@@ -90,11 +124,16 @@ void get_current_states(const sensor_msgs::JointState &current_state){
 }
 
 
-bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const string& t){
+bool set_named_target(moveit::planning_interface::MoveGroupInterface& mgi, const string& t, double w1, double w2){
 	moveit_msgs::GetRobotStateFromWarehouse srv;
 	srv.request.name= t;
 	if( (get_named_state.call(srv) && srv.response.state.joint_state.name.size() > 0) ){
-		mgi.setJointValueTarget(srv.response.state.joint_state);
+		sensor_msgs::JointState state;
+		state = srv.response.state.joint_state;
+		state.position[23] = w1;
+		state.position[22] = w2;
+		mgi.setJointValueTarget(state);
+		// mgi.setJointValueTarget(srv.response.state.joint_state);
 		return true;
 	}
 	else {
@@ -121,8 +160,10 @@ int main(int argc, char** argv){
 	moveit::planning_interface::PlanningSceneInterface psi;
 	moveit::planning_interface::MoveGroupInterface::Plan shadow_plan;
 
-	ros::Subscriber state_sub = nh.subscribe("/joint_states", 1, get_current_states);
-	ros::Subscriber camera_sub = nh.subscribe("/webcam/image_raw", 1, One_camera_callback);
+	ros::Subscriber state_sub = nh.subscribe("/joint_states", 1, Hand_Demo_Warehouse_Onecamera::get_current_states,this);
+	ros::Subscriber camera_sub = nh.subscribe("/webcam/image_raw", 1, Hand_Demo_Warehouse_Onecamera::One_camera_callback,this);
+
+	// ros::Publisher pose_sub = pnh.advertise<hand_demo::NamedRobotPose>("/named_robot_pose", 1);
 
 	robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
 	robot_model::RobotModelPtr shadow_model = robot_model_loader.getModel();
@@ -148,7 +189,7 @@ int main(int argc, char** argv){
 	}
 
 	vector<string> targets {
-		"open",
+		//"open",
 		"chinese_number_0",
 		"chinese_number_1",
 		"chinese_number_2",
@@ -177,75 +218,83 @@ int main(int argc, char** argv){
 
 	size_t current_target = 0;
 	size_t random_target = 0;
+	double wrist1_lower_limit = -0.698;
+	double wrist1_upper_limit = 0.489;
+	double wrist2_lower_limit = -0.489;
+	double wrist2_upper_limit = 0.140;
+	Eigen::VectorXd w1,w2;
+	w1.setLinSpaced(8,wrist1_lower_limit + 0.1,wrist1_upper_limit - 0.1);
+	w2.setLinSpaced(4,wrist2_lower_limit + 0.1,wrist2_upper_limit - 0.1);
+
 	while(ros::ok()){
-		auto& t= targets[current_target];
-
-		if(!set_named_target(mgi, t)){
-			ROS_WARN_STREAM("Don't know state '" << t << "'. Skipping");
-			continue;
-		}
-		ROS_INFO_STREAM("Going to state " << t);
-
-		collision_request.contacts = true;
-		collision_request.max_contacts = 1000;
-		collision_result.clear();
-
-		// get self collision results;
-		current_state = mgi.getJointValueTarget();
-		planning_scene.checkSelfCollision(collision_request, collision_result);
-		collision_detection::CollisionResult::ContactMap::const_iterator it;
-		collision_pairs.clear();
-		for(it = collision_result.contacts.begin();	it != collision_result.contacts.end(); ++it)
+		for (int i = 0; i < w1.rows(); i++)
 		{
-			collision_pairs.push_back(std::make_pair (it->first.first.c_str(), it->first.second.c_str()));
-			// ROS_WARN("Collision between: %s and %s, need to allow these collisions", it->first.first.c_str(), it->first.second.c_str());
-		}
+			for (int y = 0; y < w2.rows(); y++)
+			{
+				ROS_INFO_STREAM("Collect data at this wrist pose");
+				// one wrist pose, for all random states
+				if(randomize){
+					static std::default_random_engine rnd(time(nullptr));
+					shuffle (targets.begin(), targets.end(),rnd);
+				}
+				for( auto& t : targets ){
+					ROS_INFO_STREAM("Going to state " << t);
 
-		// allow named collisions
-		{
-			collision_detection::AllowedCollisionMatrix acm(full_acm);
-			for(auto& ac : collision_pairs){
-				acm.setEntry(ac.first, ac.second, true);
+					if(!Hand_Demo_Warehouse_Onecamera::set_named_target(mgi, t, w1(i), w2(y))){
+						ROS_WARN_STREAM("Don't know state '" << t << "'. Skipping");
+						continue;
+					}
+
+					collision_request.contacts = true;
+					collision_request.max_contacts = 1000;
+					collision_result.clear();
+
+					// get self collision results;
+					current_state = mgi.getJointValueTarget();
+					planning_scene.checkSelfCollision(collision_request, collision_result);
+					collision_detection::CollisionResult::ContactMap::const_iterator it;
+					collision_pairs.clear();
+					for(it = collision_result.contacts.begin();	it != collision_result.contacts.end(); ++it)
+					{
+						collision_pairs.push_back(std::make_pair (it->first.first.c_str(), it->first.second.c_str()));
+						ROS_WARN("Collision between: %s and %s, need to allow these collisions", it->first.first.c_str(), it->first.second.c_str());
+					}
+
+					// allow named collisions
+					{
+						collision_detection::AllowedCollisionMatrix acm(full_acm);
+						for(auto& ac : collision_pairs){
+							acm.setEntry(ac.first, ac.second, true);
+						}
+						moveit_msgs::PlanningScene scene_msg;
+						scene_msg.is_diff= true;
+						scene_msg.robot_state.is_diff= true;
+						acm.getMessage(scene_msg.allowed_collision_matrix);
+						psi.applyPlanningScene(scene_msg);
+					}
+
+					if (!(planned= static_cast<bool>(mgi.plan(shadow_plan))))
+					{
+						ROS_WARN_STREAM("Failed to plan state '" << t<< "'");
+					}
+
+					if(!(moved= static_cast<bool>(mgi.execute(shadow_plan)))){
+						ROS_WARN_STREAM("Failed to execute state '" << t<< "'");
+					}
+
+					planned = false;
+					ROS_INFO_STREAM(" moved to " << t);
+
+					// forbid collisions again
+					{
+						moveit_msgs::PlanningScene scene_msg;
+						scene_msg.is_diff= true;
+						scene_msg.robot_state.is_diff= true;
+						full_acm.getMessage(scene_msg.allowed_collision_matrix);
+						psi.applyPlanningScene(scene_msg);
+					}
+				}
 			}
-			moveit_msgs::PlanningScene scene_msg;
-			scene_msg.is_diff= true;
-			scene_msg.robot_state.is_diff= true;
-			acm.getMessage(scene_msg.allowed_collision_matrix);
-			psi.applyPlanningScene(scene_msg);
-		}
-
-		if (!(planned= static_cast<bool>(mgi.plan(shadow_plan))))
-		{
-			ROS_WARN_STREAM("Failed to plan state '" << t<< "'");
-		}
-
-		if(!(moved= static_cast<bool>(mgi.execute(shadow_plan)))){
-			ROS_WARN_STREAM("Failed to execute state '" << t<< "'");
-		}
-
-		planned = false;
-		ROS_INFO_STREAM(" moved to " << t);
-
-		// forbid collisions again
-		{
-			moveit_msgs::PlanningScene scene_msg;
-			scene_msg.is_diff= true;
-			scene_msg.robot_state.is_diff= true;
-			full_acm.getMessage(scene_msg.allowed_collision_matrix);
-			psi.applyPlanningScene(scene_msg);
-		}
-
-		if(randomize){
-			static std::default_random_engine rnd(time(nullptr));
-			//static std::random_device rnd;
-			std::uniform_int_distribution<int> dist(0, targets.size()-1);
-			random_target= dist(rnd);
-			while (random_target == current_target )
-				random_target= dist(rnd);
-			current_target = random_target;
-		}
-		else {
-			current_target = (1+current_target)%targets.size();
 		}
 	}
 	return 0;
