@@ -19,8 +19,6 @@
 
 #include <moveit/collision_detection/collision_matrix.h>
 
-#include <hand_demo/NamedRobotPose.h>
-
 #include <random>
 
 #include <iostream>
@@ -89,11 +87,6 @@ void One_camera_callback(const sensor_msgs::Image::ConstPtr &image_data) {
 		<< to_string( pose.position[17]) <<',' << to_string( pose.position[18]) <<',' << to_string( pose.position[19]) <<','
 		<< to_string( pose.position[20]) <<',' << to_string( pose.position[21]) <<',' << to_string( pose.position[22]) <<','
 		<< to_string( pose.position[23]) <<  endl;
-
-		// hand_demo::NamedRobotPose current_state;
-		// current_state.image = image_data;
-		// current_state.state = pose;
-		// pose_pub.publish(current_state);
 	}
 
 	//record the start of a new action
@@ -155,13 +148,10 @@ int main(int argc, char** argv){
 	ros::Subscriber state_sub = nh.subscribe("/joint_states", 1, get_current_states);
 	ros::Subscriber camera_sub = nh.subscribe("/webcam/image_raw", 1, One_camera_callback);
 
-	// ros::Publisher pose_sub = pnh.advertise<hand_demo::NamedRobotPose>("/named_robot_pose", 1);
-
 	robot_model_loader::RobotModelLoader robot_model_loader("robot_description");
 	robot_model::RobotModelPtr shadow_model = robot_model_loader.getModel();
 	planning_scene::PlanningScene planning_scene(shadow_model);
 	robot_state::RobotState& current_state = planning_scene.getCurrentStateNonConst();
-	const robot_model::JointModelGroup* joint_model_group = current_state.getJointModelGroup("right_hand");
 
 	collision_detection::CollisionRequest collision_request;
 	collision_detection::CollisionResult collision_result;
@@ -201,15 +191,19 @@ int main(int argc, char** argv){
 		"grasp_3_smallcylinder",
 		"grasp_4_pen",
 		"grasp_4_pen1",
+		"grasp_4_pen2",
+		"grasp_5_close",
+		"grasp_6_nolf",
+		"grasp_no_ff",
 		"grasp_parallel",
 		"grasp_parallel2",
 		"grasp_parallel3",
 		"grasp_smallcylinder2",
 		"grasp_thinobjs",
+		"rock_the_world",
+		"lanhua_finger",
 	};
 
-	size_t current_target = 0;
-	size_t random_target = 0;
 	double wrist1_lower_limit = -0.698;
 	double wrist1_upper_limit = 0.489;
 	double wrist2_lower_limit = -0.489;
@@ -223,7 +217,7 @@ int main(int argc, char** argv){
 		{
 			for (int y = 0; y < w2.rows(); y++)
 			{
-				ROS_INFO_STREAM("Collect data at this wrist pose");
+				ROS_INFO_STREAM("Run " << i*4+y+1 << "th wrist pose");
 				// one wrist pose, for all random states
 				if(randomize){
 					static std::default_random_engine rnd(time(nullptr));

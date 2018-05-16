@@ -37,6 +37,10 @@ add_executable(${PROJECT_NAME}_warehouse_onecamera_video src/hand_demo_warehouse
 add_dependencies(${PROJECT_NAME}_warehouse_onecamera_video ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_warehouse_onecamera_video ${catkin_LIBRARIES})
 
+add_executable(${PROJECT_NAME}_warehouse_onecamera_conti src/hand_demo_warehouse_onecamera_conti.cpp)
+add_dependencies(${PROJECT_NAME}_warehouse_onecamera_conti ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME}_warehouse_onecamera_conti ${catkin_LIBRARIES})
+
 add_executable(${PROJECT_NAME}_warehouse_twocamera src/hand_demo_warehouse_twocamera.cpp)
 add_dependencies(${PROJECT_NAME}_warehouse_twocamera ${catkin_EXPORTED_TARGETS} ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(${PROJECT_NAME}_warehouse_twocamera ${catkin_LIBRARIES})
