@@ -1,7 +1,26 @@
 <?xml version="1.0"?>
 <launch>
-    <node name="hand_demo_warehouse" pkg="hand_demo" type="hand_demo_warehouse" output="screen"/>
-    <!-- <node name="hand_demo_random" pkg="hand_demo" type="hand_demo_random" output="screen"/> -->
+    <node name="hand_demo_warehouse_onecamera_conti" pkg="hand_demo" type="hand_demo_warehouse_onecamera_conti" output="screen">
+      <!-- randomly run "target" actions -->
+      <param name="random" value= "true"/>
 
-    <node name="save_data" pkg="hand_demo" type="save_data" output="screen"/>
+      <!-- the interval of save two images -->
+      <param name="image_interval" value= "0.05"/>
+
+      <!-- joint limits of two wrist joints -->
+      <param name="wrist1_lower_limit" value= "-0.698"/>
+      <param name="wrist1_upper_limit" value= "0.489"/>
+      <param name="wrist2_lower_limit" value= "-0.489"/>
+      <param name="wrist2_upper_limit" value= "0.140"/>
+
+      <!-- set current wrist pose -->
+      <param name="wrist1_row" value= "0"/>
+      <param name="wrist2_row" value= "0"/>
+
+      <!-- set the folder used to save data -->
+      <param name="handpose_file" value= "/home/hand/v4hn/src/hand_demo/data/handpose20/"/>
+      <param name="handpose_data_filename" value= "/home/hand/v4hn/src/hand_demo/data/handpose_data/handpose_data20.csv"/>
+      <param name="handpose_changepoint_filename" value= "/home/hand/v4hn/src/hand_demo/data/handpose_changepoint/handpose_changepoint20.csv"/>
+    </node>
+    
 </launch>

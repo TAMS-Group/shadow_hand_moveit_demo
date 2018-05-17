@@ -58,6 +58,12 @@ private:
 	double wrist1_upper_limit_;
 	double wrist2_lower_limit_;
 	double wrist2_upper_limit_;
+	int wrist1_row_;
+	int wrist2_row_;
+
+	string handpose_file_;
+	string handpose_data_filename_;
+	string handpose_changepoint_filename_;
 
 public:
 	Hand_Demo_Warehouse_Onecamera():planned(false),moved(false),initialized(false),pnh("~"),
@@ -105,6 +111,11 @@ public:
 		wrist1_upper_limit_ = pnh.param<double>("wrist1_upper_limit", 0.489);
 		wrist2_lower_limit_ = pnh.param<double>("wrist2_lower_limit", -0.489);
 		wrist2_upper_limit_ = pnh.param<double>("wrist2_upper_limit", 0.140);
+		handpose_file_ = pnh.param<string>("handpose_file", "/home/hand/v4hn/src/hand_demo/data/handpose1/");
+		handpose_data_filename_ = pnh.param<string>("handpose_data_filename", "/home/hand/v4hn/src/hand_demo/data/handpose_data1.csv");
+		handpose_changepoint_filename_ = pnh.param<string>("handpose_changepoint_filename", "/home/hand/v4hn/src/hand_demo/data/handpose_changepoint1.csv");
+		wrist1_row_ = pnh.param<int>("wrist1_row", 0);
+		wrist2_row_ = pnh.param<int>("wrist2_row", 0);
 
 		get_named_state= nh.serviceClient<moveit_msgs::GetRobotStateFromWarehouse>("get_robot_state", true);
 		ROS_INFO("waiting for warehouse");
@@ -113,6 +124,7 @@ public:
 		ROS_INFO("setting up MGI and PSI");
 		mgi = std::make_shared<moveit::planning_interface::MoveGroupInterface>("right_hand");
   	psi = std::make_shared<moveit::planning_interface::PlanningSceneInterface>();
+		mgi->setPlanningTime(10); // increase planning time
 
 		run();
 	}
@@ -150,10 +162,10 @@ public:
 		while(ros::ok())
 		{
 			// for (int i = 0; i < w1.rows(); i++)
-			for (int i = 4; i < 5; i++)
+			for (int i = wrist1_row_; i < wrist1_row_ + 1; i++)
 			{
 				// for (int y = 0; y < w2.rows(); y++)
-				for (int y = 3; y < 4; y++)
+				for (int y = wrist2_row_; y < wrist2_row_ + 1; y++)
 				{
 					ROS_INFO_STREAM("Run " << i*4+y+1 << "th wrist pose");
 					// one wrist pose, for all random states
@@ -181,7 +193,7 @@ public:
 						for(it = collision_result.contacts.begin();	it != collision_result.contacts.end(); ++it)
 						{
 							collision_pairs.push_back(std::make_pair (it->first.first.c_str(), it->first.second.c_str()));
-							ROS_WARN("Collision between: %s and %s, need to allow these collisions", it->first.first.c_str(), it->first.second.c_str());
+							// ROS_WARN("Collision between: %s and %s, need to allow these collisions", it->first.first.c_str(), it->first.second.c_str());
 						}
 
 						// allow named collisions
@@ -205,9 +217,12 @@ public:
 						if(!(moved= static_cast<bool>(mgi->execute(shadow_plan)))){
 							ROS_WARN_STREAM("Failed to execute state '" << t<< "'");
 						}
+						else
+						{
+							ROS_INFO_STREAM(" moved to " << t);
+						}
 
 						planned = false;
-						ROS_INFO_STREAM(" moved to " << t);
 
 						// forbid collisions again
 						{
@@ -220,23 +235,9 @@ public:
 					}
 				}
 			}
-			ROS_INFO("Shadow achieves all pose");
+			ROS_ERROR("Shadow achieves all pose");
+			break;
 		}
-	}
-
-	collision_detection::AllowedCollisionMatrix get_allowedcollisionmatrix()
-	{
-		collision_detection::AllowedCollisionMatrix full_acm;
-		moveit_msgs::PlanningScene scene;
-		ros::ServiceClient get_planning_scene;
-		get_planning_scene= nh.serviceClient<moveit_msgs::GetPlanningScene>("get_planning_scene", true);
-		ROS_INFO("waiting for planning scene");
-		get_planning_scene.waitForExistence();
-		moveit_msgs::GetPlanningScene srv;
-		srv.request.components.components= moveit_msgs::PlanningSceneComponents::ALLOWED_COLLISION_MATRIX;
-		get_planning_scene.call(srv);
-		full_acm= srv.response.scene.allowed_collision_matrix;
-		return full_acm;
 	}
 
 	void One_camera_callback(const sensor_msgs::Image::ConstPtr &image_data)
@@ -250,7 +251,7 @@ public:
 		sensor_msgs::JointState pose = pose_state;
 
 		static int count = 0;
-		if (planned && moved)
+		if (planned)
 		{
 			// after planned, waiting robot move
 			if (!initialized)
@@ -275,10 +276,10 @@ public:
 			count++;
 			cout<<"image count: "<< count << endl;
 
-			cv::imwrite( "/home/hand/v4hn/src/hand_demo/data/handpose/" + to_string( count ) + ".jpg", cv_ptr->image );
+			cv::imwrite( handpose_file_ + to_string( count ) + ".jpg", cv_ptr->image );
 
 			ofstream outFile;
-			outFile.open("/home/hand/v4hn/src/hand_demo/data/handpose_data.csv",ios::app);
+			outFile.open(handpose_data_filename_,ios::app);
 			outFile << to_string( count ) << ',' << to_string( pose.position[0]) << ',' << to_string( pose.position[1]) <<','
 			<< to_string( pose.position[2]) <<',' << to_string( pose.position[3]) <<',' << to_string( pose.position[4]) <<','
 			<< to_string( pose.position[5]) <<',' << to_string( pose.position[6]) <<',' << to_string( pose.position[7]) <<','
@@ -296,12 +297,12 @@ public:
 			pose_pub.publish(image_state);
 		}
 
-		//record the start of a new action
+		//record the start "point" of a new action
 		if (!planned && initialized)
 		{
 			initialized = false;
 			ofstream outFile;
-			outFile.open("/home/hand/v4hn/src/hand_demo/data/handpose_changepoint.csv", ios::app);
+			outFile.open(handpose_changepoint_filename_, ios::app);
 			outFile << to_string( count + 1 ) << endl;
 		}
 		ros::Duration(image_interval_).sleep();
